@@ -161,10 +161,10 @@ function AnimatedButton({
   const scale = useRef(new Animated.Value(1)).current;
 
   const pressIn = () => {
-    Animated.spring(scale, { toValue: 0.96, useNativeDriver: true, speed: 40 }).start();
+    Animated.spring(scale, { toValue: 0.96, useNativeDriver: Platform.OS !== 'web', speed: 40 }).start();
   };
   const pressOut = () => {
-    Animated.spring(scale, { toValue: 1, useNativeDriver: true, speed: 40 }).start();
+    Animated.spring(scale, { toValue: 1, useNativeDriver: Platform.OS !== 'web', speed: 40 }).start();
   };
 
   return (
@@ -197,7 +197,7 @@ function AnimatedBalance({
 
   useEffect(() => {
     scale.setValue(1.08);
-    Animated.spring(scale, { toValue: 1, useNativeDriver: true, friction: 4, tension: 40 }).start();
+    Animated.spring(scale, { toValue: 1, useNativeDriver: Platform.OS !== 'web', friction: 4, tension: 40 }).start();
   }, [value]);
 
   return (
@@ -272,7 +272,7 @@ export default function App() {
 
   useEffect(() => {
     tabFade.setValue(0);
-    Animated.timing(tabFade, { toValue: 1, duration: 220, useNativeDriver: true }).start();
+    Animated.timing(tabFade, { toValue: 1, duration: 220, useNativeDriver: Platform.OS !== 'web' }).start();
   }, [tab]);
 
   useEffect(() => {
