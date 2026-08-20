@@ -49,6 +49,13 @@ const BEVEL = {
 const LIGHT_CARD_BG = '#f4f3ef';
 const LIGHT_CARD_BORDER = 'rgba(0,0,0,0.08)';
 
+// On native, flex:1 fills the remaining screen height (which is always
+// bounded). On web, the same flex:1 chain has no bounded ancestor to fill,
+// so it collapses/clips content instead of letting the page grow and
+// scroll — so these vertical "fill remaining space" containers only apply
+// flex:1 on native.
+const VERTICAL_FILL = Platform.OS === 'web' ? {} : { flex: 1 };
+
 const LOGO = require('./assets/brand/trezo-logo-transparent.png');
 const LOGO_ASPECT_RATIO = 790 / 323;
 
@@ -654,7 +661,7 @@ export default function App() {
         </Pressable>
       </View>
 
-      <Animated.View style={{ flex: 1, opacity: tabFade }}>
+      <Animated.View style={[VERTICAL_FILL, { opacity: tabFade }]}>
         {tab === 'transactions' ? (
           <>
             <View style={styles.form}>
@@ -1201,7 +1208,7 @@ const styles = StyleSheet.create({
     fontSize: 15,
   },
   list: {
-    flex: 1,
+    ...VERTICAL_FILL,
   },
   emptyText: {
     textAlign: 'center',
@@ -1266,7 +1273,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   historyContainer: {
-    flex: 1,
+    ...VERTICAL_FILL,
   },
   periodRow: {
     flexDirection: 'row',
