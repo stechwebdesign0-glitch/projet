@@ -235,6 +235,7 @@ export default function App() {
   const [currentUser, setCurrentUser] = useState('');
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [transactionsLoading, setTransactionsLoading] = useState(true);
+  const [transactionsError, setTransactionsError] = useState('');
 
   const [formType, setFormType] = useState<TransactionType>('entree');
   const [formCategory, setFormCategory] = useState<string>(ENTREE_CATEGORIES[0].key);
@@ -293,6 +294,9 @@ export default function App() {
 
       if (isMounted && !error && data) {
         setTransactions(data.map(normalizeTransaction));
+        setTransactionsError('');
+      } else if (isMounted && error) {
+        setTransactionsError(error.message);
       }
       if (isMounted) {
         setTransactionsLoading(false);
@@ -760,6 +764,8 @@ export default function App() {
               ListEmptyComponent={
                 transactionsLoading ? (
                   <ActivityIndicator style={{ marginTop: 20 }} color={TEXT_INK} />
+                ) : transactionsError ? (
+                  <Text style={styles.errorText}>Erreur: {transactionsError}</Text>
                 ) : (
                   <Text style={styles.emptyText}>Aucune transaction pour l'instant</Text>
                 )
