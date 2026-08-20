@@ -24,7 +24,6 @@ LogBox.ignoreLogs(['Cannot record touch move without a touch start']);
 import { StatusBar } from 'expo-status-bar';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from './lib/supabase';
 
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
@@ -112,6 +111,10 @@ type Transaction = {
 
 type Screen = 'loading' | 'register' | 'login' | 'app';
 
+function displayNameFor(user: { user_metadata?: any; email?: string | null } | null | undefined): string {
+  return user?.user_metadata?.display_name ?? user?.email ?? '';
+}
+
 function normalizeTransaction(row: any): Transaction {
   return {
     id: String(row.id),
@@ -124,10 +127,6 @@ function normalizeTransaction(row: any): Transaction {
     personal: Boolean(row.personal),
   };
 }
-
-const STORAGE_NAME = 'user_name';
-const STORAGE_PASSWORD = 'user_password';
-const STORAGE_SESSION = 'is_logged_in';
 
 function GraphiteCard({
   style,
@@ -229,6 +228,7 @@ function Brand({ compact }: { compact?: boolean }) {
 export default function App() {
   const [screen, setScreen] = useState<Screen>('loading');
   const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
 
@@ -256,19 +256,28 @@ export default function App() {
   }, [tab]);
 
   useEffect(() => {
-    (async () => {
-      const savedName = await AsyncStorage.getItem(STORAGE_NAME);
-      const savedSession = await AsyncStorage.getItem(STORAGE_SESSION);
-
-      if (!savedName) {
-        setScreen('register');
-      } else if (savedSession === 'true') {
-        setCurrentUser(savedName);
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session?.user) {
+        setCurrentUser(displayNameFor(session.user));
         setScreen('app');
       } else {
         setScreen('login');
       }
-    })();
+    });
+
+    const { data: authListener } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (session?.user) {
+        setCurrentUser(displayNameFor(session.user));
+        setScreen('app');
+      } else {
+        setCurrentUser('');
+        setScreen('login');
+      }
+    });
+
+    return () => {
+      authListener.subscription.unsubscribe();
+    };
   }, []);
 
   useEffect(() => {
@@ -325,37 +334,58 @@ export default function App() {
   }, [screen]);
 
   const handleRegister = async () => {
-    if (!name.trim() || password.length < 4) {
-      setError('Nom requis, mot de passe de 4 caractères minimum');
+    if (!name.trim() || !email.trim() || password.length < 6) {
+      setError('Nom, email et mot de passe (6 caractères min.) requis');
       return;
     }
-    await AsyncStorage.setItem(STORAGE_NAME, name.trim());
-    await AsyncStorage.setItem(STORAGE_PASSWORD, password);
-    await AsyncStorage.setItem(STORAGE_SESSION, 'true');
-    setCurrentUser(name.trim());
+
+    const { data, error: signUpError } = await supabase.auth.signUp({
+      email: email.trim(),
+      password,
+      options: { data: { display_name: name.trim() } },
+    });
+
+    if (signUpError) {
+      setError(signUpError.message);
+      return;
+    }
+
+    if (!data.session) {
+      setError('Compte créé. Vérifie ton email pour confirmer avant de te connecter.');
+      return;
+    }
+
     setError('');
     setPassword('');
-    setScreen('app');
   };
 
   const handleLogin = async () => {
-    const savedName = await AsyncStorage.getItem(STORAGE_NAME);
-    const savedPassword = await AsyncStorage.getItem(STORAGE_PASSWORD);
-
-    if (password !== savedPassword) {
-      setError('Mot de passe incorrect');
+    if (!email.trim() || !password) {
+      setError('Email et mot de passe requis');
       return;
     }
-    await AsyncStorage.setItem(STORAGE_SESSION, 'true');
-    setCurrentUser(savedName ?? '');
+
+    const { error: signInError } = await supabase.auth.signInWithPassword({
+      email: email.trim(),
+      password,
+    });
+
+    if (signInError) {
+      setError(signInError.message);
+      return;
+    }
+
     setError('');
     setPassword('');
-    setScreen('app');
   };
 
   const handleLogout = async () => {
-    await AsyncStorage.setItem(STORAGE_SESSION, 'false');
-    setScreen('login');
+    await supabase.auth.signOut();
+  };
+
+  const switchAuthScreen = () => {
+    setScreen((current) => (current === 'register' ? 'login' : 'register'));
+    setError('');
   };
 
   const balance = transactions.reduce(
@@ -493,7 +523,7 @@ export default function App() {
         <StatusBar style="auto" />
         <Brand />
         <Text style={styles.title}>
-          {isRegister ? 'Créer un profil' : 'Connexion'}
+          {isRegister ? 'Créer un compte' : 'Connexion'}
         </Text>
 
         {isRegister && (
@@ -508,6 +538,18 @@ export default function App() {
             />
           </GraphiteCard>
         )}
+
+        <GraphiteCard style={styles.inputCard}>
+          <TextInput
+            style={styles.input}
+            placeholder="Email"
+            placeholderTextColor={TEXT_ON_GRAPHITE_MUTED}
+            value={email}
+            onChangeText={setEmail}
+            autoCapitalize="none"
+            keyboardType="email-address"
+          />
+        </GraphiteCard>
 
         <GraphiteCard style={styles.inputCard}>
           <TextInput
@@ -527,9 +569,15 @@ export default function App() {
           onPress={isRegister ? handleRegister : handleLogin}
         >
           <Text style={styles.buttonText}>
-            {isRegister ? 'Créer mon profil' : 'Se connecter'}
+            {isRegister ? 'Créer mon compte' : 'Se connecter'}
           </Text>
         </AnimatedButton>
+
+        <Pressable onPress={switchAuthScreen} style={styles.switchAuthLink}>
+          <Text style={styles.switchAuthText}>
+            {isRegister ? 'Déjà un compte ? Se connecter' : "Pas de compte ? S'inscrire"}
+          </Text>
+        </Pressable>
       </KeyboardAvoidingView>
     );
   }
@@ -916,6 +964,14 @@ const styles = StyleSheet.create({
   errorText: {
     color: COLOR_CRITICAL,
     marginBottom: 10,
+  },
+  switchAuthLink: {
+    marginTop: 18,
+  },
+  switchAuthText: {
+    fontSize: 13,
+    color: TEXT_INK_MUTED,
+    textDecorationLine: 'underline',
   },
   primaryButton: {
     width: '100%',

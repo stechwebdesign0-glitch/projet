@@ -8,8 +8,8 @@ const SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_6xbru2AuvbfdUn-m1tIpqQ_-5riVqOe
 export const supabase = createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
   auth: {
     storage: AsyncStorage,
-    autoRefreshToken: false,
-    persistSession: false,
+    autoRefreshToken: true,
+    persistSession: true,
     detectSessionInUrl: false,
   },
 });
