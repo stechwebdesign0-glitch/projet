@@ -252,6 +252,25 @@ export default function App() {
   const tabFade = useRef(new Animated.Value(1)).current;
 
   useEffect(() => {
+    if (Platform.OS === 'web') {
+      // Expo's web template disables body scrolling by default, assuming a
+      // ScrollView/FlatList will handle it internally. Our nested flex layout
+      // doesn't resolve a bounded height for that, so we restore normal page
+      // scrolling instead.
+      const html = document.documentElement as HTMLElement;
+      const body = document.body;
+      const previousHtmlOverflow = html.style.overflow;
+      const previousBodyOverflow = body.style.overflow;
+      html.style.overflow = 'auto';
+      body.style.overflow = 'auto';
+      return () => {
+        html.style.overflow = previousHtmlOverflow;
+        body.style.overflow = previousBodyOverflow;
+      };
+    }
+  }, []);
+
+  useEffect(() => {
     tabFade.setValue(0);
     Animated.timing(tabFade, { toValue: 1, duration: 220, useNativeDriver: true }).start();
   }, [tab]);
@@ -928,7 +947,7 @@ export default function App() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    ...(Platform.OS === 'web' ? { height: '100vh' as any } : null),
+    ...(Platform.OS === 'web' ? { minHeight: '100vh' as any } : null),
     backgroundColor: COLOR_PAGE,
     paddingTop: 60,
     paddingHorizontal: 20,
