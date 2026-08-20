@@ -928,6 +928,7 @@ export default function App() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    ...(Platform.OS === 'web' ? { height: '100vh' as any } : null),
     backgroundColor: COLOR_PAGE,
     paddingTop: 60,
     paddingHorizontal: 20,
